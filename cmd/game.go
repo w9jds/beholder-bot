@@ -12,7 +12,6 @@ const (
 )
 
 func createNewGame(session *discordgo.Session, message *discordgo.MessageCreate) {
-	name := strings.Trim(message.Content[strings.Index(message.Content, " "):strings.Index(message.Content, "@")-1], " ")
 	overwrites := []*discordgo.PermissionOverwrite{
 		getDmPermissions(message.Author),
 		&discordgo.PermissionOverwrite{
@@ -21,6 +20,14 @@ func createNewGame(session *discordgo.Session, message *discordgo.MessageCreate)
 			Allow: 0,
 			Deny:  discordgo.PermissionAll,
 		},
+	}
+
+	var name string
+	if len(message.Mentions) > 0 {
+		name = strings.Trim(message.Content[strings.Index(message.Content, " "):strings.Index(message.Content, "@")-1], " ")
+	} else {
+		words := strings.Split(message.Content, " ")
+		name = strings.Join(words[1:], " ")
 	}
 
 	for _, user := range message.Mentions {
@@ -65,119 +72,6 @@ func setNextSession(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-}
-
-func addNewMap(session *discordgo.Session, message *discordgo.MessageCreate) {
-	if !isGameDM(message.GuildID, message.ChannelID, message.Author.ID) {
-		return
-	}
-}
-
-func updatePollAnswers(session *discordgo.Session, reactionAdd *discordgo.MessageReactionAdd) {
-	message, err := session.ChannelMessage(reactionAdd.ChannelID, reactionAdd.MessageID)
-	if err != nil {
-		log.Fatal(err)
-		removeReaction(session, reactionAdd.ChannelID, reactionAdd.MessageID, reactionAdd.Emoji.ID, reactionAdd.UserID)
-		return
-	}
-
-	if len(message.Embeds) == 0 || message.Embeds[0].Title != dayPollTitle {
-		return
-	}
-
-	user, err := session.GuildMember(reactionAdd.GuildID, reactionAdd.UserID)
-	if err != nil {
-		log.Fatal(err)
-		removeReaction(session, reactionAdd.ChannelID, reactionAdd.MessageID, reactionAdd.Emoji.ID, reactionAdd.UserID)
-		return
-	}
-
-	switch reactionAdd.Emoji.Name {
-	case "regional_indicator_m":
-		message.Embeds[0].Fields[0].Value = addUser(message.Embeds[0].Fields[0].Value, user)
-		break
-	case "regional_indicator_t":
-		message.Embeds[0].Fields[1].Value = addUser(message.Embeds[0].Fields[1].Value, user)
-		break
-	case "regional_indicator_w":
-		message.Embeds[0].Fields[2].Value = addUser(message.Embeds[0].Fields[2].Value, user)
-		break
-	case "regional_indicator_h":
-		message.Embeds[0].Fields[3].Value = addUser(message.Embeds[0].Fields[3].Value, user)
-		break
-	case "regional_indicator_f":
-		message.Embeds[0].Fields[4].Value = addUser(message.Embeds[0].Fields[4].Value, user)
-		break
-	case "regional_indicator_s":
-		message.Embeds[0].Fields[5].Value = addUser(message.Embeds[0].Fields[5].Value, user)
-		break
-	case "regional_indicator_u":
-		message.Embeds[0].Fields[6].Value = addUser(message.Embeds[0].Fields[6].Value, user)
-		break
-	default:
-		removeReaction(session, reactionAdd.ChannelID, reactionAdd.MessageID, reactionAdd.Emoji.ID, reactionAdd.UserID)
-		return
-	}
-
-	session.ChannelMessageEditEmbed(reactionAdd.ChannelID, message.ChannelID, message.Embeds[0])
-}
-
-func addUser(value string, user *discordgo.Member) string {
-	users := strings.Split(value, ", ")
-
-	if strings.Index(value, user.Mention()) > -1 {
-		return value
-	}
-
-	return strings.Join(append(users, user.Mention()), ", ")
-}
-
-func removeReaction(session *discordgo.Session, channelID string, messageID string, emojiID string, userID string) {
-	err := session.MessageReactionRemove(channelID, messageID, emojiID, userID)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func pollBestDay(session *discordgo.Session, message *discordgo.MessageCreate) {
-	if !isGameDM(message.GuildID, message.ChannelID, message.Author.ID) {
-		return
-	}
-
-	session.ChannelMessageSendEmbed(message.ChannelID, &discordgo.MessageEmbed{
-		Title:       dayPollTitle,
-		Description: "The DM has initiated a poll to see what day best works for all players, add a reaction for the days of the week that you are available.",
-		Fields: []*discordgo.MessageEmbedField{
-			&discordgo.MessageEmbedField{
-				Name:  ":regional_indicator_m:onday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  ":regional_indicator_t:uesday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  ":regional_indicator_w:ednesday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  "T:regional_indicator_h:ursday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  ":regional_indicator_f:riday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  ":regional_indicator_s:aturday",
-				Value: "",
-			},
-			&discordgo.MessageEmbedField{
-				Name:  "S:regional_indicator_u:nday",
-				Value: "",
-			},
-		},
-	})
 }
 
 func getDmPermissions(user *discordgo.User) *discordgo.PermissionOverwrite {

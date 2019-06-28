@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -55,29 +56,41 @@ func setupEnv() bool {
 }
 
 func main() {
-	var error error
+	var err error
 	isReady := setupEnv()
 
 	if isReady == true {
-		postgres, error = sql.Open("cloudsqlpostgres", dsn)
-		if error != nil {
-			log.Fatal(error)
+		postgres, err = sql.Open("cloudsqlpostgres", dsn)
+		if err != nil {
+			log.Panic(err)
 		}
 
 		defer postgres.Close()
 
-		discord, error = discordgo.New("Bot " + botToken)
-		if error != nil {
-			log.Fatal("discordgo: ", error)
+		contents, err := ioutil.ReadFile("../setup.sql")
+		if err != nil {
+			log.Panic(err)
+		}
+
+		_, err = postgres.Exec(string(contents))
+		if err != nil {
+			log.Panic(err)
+		}
+
+		discord, err = discordgo.New("Bot " + botToken)
+		if err != nil {
+			log.Panic("discordgo: ", err)
 		}
 
 		discord.AddHandler(ready)
 		discord.AddHandler(messageCreate)
 		discord.AddHandler(messageReactionAdd)
+		discord.AddHandler(messageDeleted)
+		discord.AddHandler(channelDeleted)
 
-		error = discord.Open()
-		if error != nil {
-			log.Fatal("discordgo: ", error)
+		err = discord.Open()
+		if err != nil {
+			log.Panic("discordgo: ", err)
 		}
 
 		defer discord.Close()
@@ -93,7 +106,7 @@ func ready(session *discordgo.Session, ready *discordgo.Ready) {
 }
 
 func messageReactionAdd(session *discordgo.Session, reactionAdd *discordgo.MessageReactionAdd) {
-	if isGameChannel(reactionAdd.GuildID, reactionAdd.ChannelID) && !isGameDM(reactionAdd.GuildID, reactionAdd.ChannelID, reactionAdd.UserID) {
+	if isGameChannel(reactionAdd.GuildID, reactionAdd.ChannelID) {
 		go updatePollAnswers(session, reactionAdd)
 	}
 }
@@ -103,7 +116,7 @@ func messageCreate(session *discordgo.Session, message *discordgo.MessageCreate)
 		return
 	}
 
-	if strings.HasPrefix(strings.ToLower(message.Content), "!createdndparty") {
+	if strings.HasPrefix(strings.ToLower(message.Content), "!createadventureparty") {
 		go createNewGame(session, message)
 	}
 
@@ -119,4 +132,15 @@ func messageCreate(session *discordgo.Session, message *discordgo.MessageCreate)
 		go addNewMap(session, message)
 	}
 
+	if strings.HasPrefix(strings.ToLower(message.Content), "!getmap") {
+		go getMap(session, message)
+	}
+}
+
+func messageDeleted(session *discordgo.Session, message *discordgo.MessageDelete) {
+	go removeMaps(message.GuildID, message.ChannelID, message.ID)
+}
+
+func channelDeleted(session *discordgo.Session, channel *discordgo.ChannelDelete) {
+	go removeChannel(channel.GuildID, channel.ID)
 }
