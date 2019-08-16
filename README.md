@@ -23,7 +23,7 @@ However, if you would like to build and host it yourself, a `DockerFile` is prov
     - Setting the next session with a datetime formatted like `mm/dd/yyyy hh:mm` will store when you are planing to play your next game.
 - `!nextsession` (Planned)
     - Print out when the next session is scheduled for.
-- `!bestdaypoll` [DM Only] (Done)
+- `!pollbestday` [DM Only] (Done)
     - Create a reaction based poll to find out which day of the week is best suited for all of your players.
 - `!addmap [name]` [DM Only] (Done)
     - Register a new map for the game channel you are in (only works in game text channels and requires a file to be attached).
